@@ -1,0 +1,4 @@
+{
+    "command": "source venv/bin/activate && uvicorn src.api.main:app --host <host> --port <port>",
+    "working_directory": "/home/kavia/workspace/code-generation/resident-directory-management-system-234880-234895/backend_fastapi"
+}
