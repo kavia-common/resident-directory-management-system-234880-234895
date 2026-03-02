@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +18,15 @@ openapi_tags = [
     {"name": "Admin", "description": "Admin approvals and resident account management."},
 ]
 
+
+def _csv_env(name: str, default: str) -> list[str]:
+    """Parse a comma-separated env var into a list."""
+    raw = os.getenv(name, default).strip()
+    if not raw:
+        return []
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
 app = FastAPI(
     title="Resident Directory Backend API",
     description=(
@@ -26,18 +37,42 @@ app = FastAPI(
     openapi_tags=openapi_tags,
 )
 
+# CORS configuration:
+# - Browsers disallow `Access-Control-Allow-Origin: *` when credentials are allowed.
+# - We therefore default to explicit localhost origins and allow overriding via ALLOWED_ORIGINS.
+allowed_origins = _csv_env("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_headers = _csv_env("ALLOWED_HEADERS", "Content-Type,Authorization")
+allowed_methods = _csv_env("ALLOWED_METHODS", "GET,POST,PUT,DELETE,PATCH,OPTIONS")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=allowed_methods,
+    allow_headers=allowed_headers,
 )
 
 
-@app.get("/", response_model=HealthResponse, tags=["Auth"], summary="Health check", operation_id="health_check")
+@app.get("/", response_model=HealthResponse, tags=["Auth"], summary="Health check", operation_id="health_check_root")
 def health_check() -> HealthResponse:
     """Health check endpoint.
+
+    Returns:
+        HealthResponse: service status message.
+    """
+    return HealthResponse(message="Healthy")
+
+
+@app.get(
+    "/healthz",
+    response_model=HealthResponse,
+    tags=["Auth"],
+    summary="Health check (compat)",
+    description="Alias for `/` used by some deployments/frontends.",
+    operation_id="health_check_healthz",
+)
+def health_check_healthz() -> HealthResponse:
+    """Health check endpoint (compat alias).
 
     Returns:
         HealthResponse: service status message.
